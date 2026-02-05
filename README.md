@@ -23,9 +23,6 @@
 
 ## 설치
 1. 프로젝트 폴더로 이동
-```powershell
-cd "C:\Users\user0\Desktop\개발\기타 프로그렘\minecraft-server-UI"
-```
 
 2. 의존성 설치
 ```powershell
