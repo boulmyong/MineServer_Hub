@@ -1,0 +1,226 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>마인크래프트 서버 UI</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">마크 서버 컨트롤</div>
+        <nav class="tabs" role="tablist">
+          <button class="tab active" data-tab="tab-control" role="tab" aria-selected="true">대시보드</button>
+          <button class="tab" data-tab="tab-settings" role="tab" aria-selected="false">설정</button>
+          <button class="tab" data-tab="tab-lists" role="tab" aria-selected="false">목록 관리</button>
+        </nav>
+        <div class="theme-toggle">
+          <span>다크 모드</span>
+          <label class="switch">
+            <input id="themeToggle" type="checkbox" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <header class="header">
+        <div>
+          <div class="eyebrow">LOCAL MINECRAFT SERVER</div>
+          <h1>마크 서버 컨트롤</h1>
+          <p>로컬에서 서버를 쉽게 시작하고, 로그와 설정을 한눈에 관리합니다.</p>
+        </div>
+        <div class="status-pill">
+          <span id="statusDot" class="dot"></span>
+          <span id="status" class="status">확인 중...</span>
+          <span id="pid" class="pid"></span>
+        </div>
+      </header>
+
+      <section id="tab-control" class="tab-panel active" role="tabpanel">
+        <div class="grid">
+          <div id="setupCard" class="card setup hidden">
+            <div class="section-title">서버 설치</div>
+            <div class="notice">
+              `server.jar`이 없습니다. 서버 종류와 버전을 선택해 자동으로 설치하세요.
+            </div>
+            <div class="config">
+              <div class="config-row">
+                <label>서버 종류</label>
+                <select id="serverTypeSelect"></select>
+              </div>
+              <div class="config-row">
+                <label>버전</label>
+                <select id="serverVersionSelect"></select>
+              </div>
+              <div class="config-row" id="buildRow">
+                <label>빌드 (Paper)</label>
+                <select id="serverBuildSelect"></select>
+              </div>
+            </div>
+            <div class="eula-row">
+              <label class="checkbox">
+                <input id="eulaCheck" type="checkbox" />
+                EULA에 동의합니다 (서버 실행에 필요)
+              </label>
+            </div>
+            <div class="buttons">
+              <button id="installBtn">다운로드 및 설치</button>
+            </div>
+            <div id="installStatus" class="helper"></div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">서버 제어</div>
+            <div class="buttons">
+              <button id="startBtn">서버 시작</button>
+              <button id="stopBtn" class="danger">서버 중지</button>
+              <button id="deleteBtn" class="danger ghost">서버 삭제</button>
+            </div>
+            <div class="helper">
+              서버 시작 후 최초 생성이 끝나면 로그에서 준비 완료 메시지를 확인하세요.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">서버 상태</div>
+            <div class="status-box">
+              <div>
+                <div class="label">현재 상태</div>
+                <div id="statusLarge" class="status large">확인 중...</div>
+              </div>
+              <div class="meta">
+                <div class="label">프로세스</div>
+                <div id="pidLarge" class="pid large"></div>
+              </div>
+            </div>
+            <div class="quick-info">
+              <div class="chip">로컬 전용</div>
+              <div class="chip">자동 로그 기록</div>
+              <div class="chip">설정 전체 편집</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">접속 정보</div>
+          <div class="info-grid">
+            <div>
+              <div class="label">로컬 접속</div>
+              <div id="localConnect" class="info-value">로딩 중...</div>
+            </div>
+            <div>
+              <div class="label">외부 IP</div>
+              <div id="externalIp" class="info-value">로딩 중...</div>
+            </div>
+            <div>
+              <div class="label">서버 버전</div>
+              <div id="serverVersion" class="info-value">로딩 중...</div>
+            </div>
+          </div>
+          <div class="helper" id="localIps"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">서버 로그</div>
+          <div id="log" class="log"></div>
+          <div class="console">
+            <input id="commandInput" type="text" placeholder="예: say 안녕하세요" />
+            <button id="sendCommandBtn">전송</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-settings" class="tab-panel" role="tabpanel">
+        <div class="card">
+          <div class="section-title">앱 설정</div>
+          <div class="config">
+            <div class="config-row">
+              <label>메모리 Xms</label>
+              <input id="xms" type="text" placeholder="예: 1G" />
+            </div>
+            <div class="config-row">
+              <label>메모리 Xmx</label>
+              <input id="xmx" type="text" placeholder="예: 2G" />
+            </div>
+            <div class="config-row">
+              <label>로그 줄 수</label>
+              <input id="logLines" type="number" min="50" max="2000" />
+            </div>
+          </div>
+          <div class="buttons">
+            <button id="saveAppBtn">앱 설정 저장</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">server.properties (전체)</div>
+          <div id="props" class="props"></div>
+          <div class="buttons">
+            <button id="savePropsBtn">server.properties 저장</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-lists" class="tab-panel" role="tabpanel">
+        <div class="card">
+          <nav class="subtabs" role="tablist">
+            <button class="subtab active" data-subtab="lists-whitelist" role="tab" aria-selected="true">화이트리스트</button>
+            <button class="subtab" data-subtab="lists-ops" role="tab" aria-selected="false">OP</button>
+            <button class="subtab" data-subtab="lists-banned-players" role="tab" aria-selected="false">벤(플레이어)</button>
+            <button class="subtab" data-subtab="lists-banned-ips" role="tab" aria-selected="false">아이피 벤</button>
+          </nav>
+
+          <section id="lists-whitelist" class="subtab-panel active" role="tabpanel">
+            <div class="section-title">화이트리스트 (whitelist.json)</div>
+            <div class="buttons">
+              <button id="addWhitelistRow">추가</button>
+              <button id="saveWhitelistBtn">저장</button>
+            </div>
+            <div id="whitelistList" class="list-body list-2"></div>
+          </section>
+
+          <section id="lists-ops" class="subtab-panel" role="tabpanel">
+            <div class="section-title">OP 리스트 (ops.json)</div>
+            <div class="buttons">
+              <button id="addOpsRow">추가</button>
+              <button id="saveOpsBtn">저장</button>
+            </div>
+            <div id="opsList" class="list-body list-4"></div>
+          </section>
+
+          <section id="lists-banned-players" class="subtab-panel" role="tabpanel">
+            <div class="section-title">벤 리스트 (banned-players.json)</div>
+            <div class="buttons">
+              <button id="addBannedPlayersRow">추가</button>
+              <button id="saveBannedPlayersBtn">저장</button>
+            </div>
+            <div id="bannedPlayersList" class="list-body list-4"></div>
+          </section>
+
+          <section id="lists-banned-ips" class="subtab-panel" role="tabpanel">
+            <div class="section-title">아이피 벤 리스트 (banned-ips.json)</div>
+            <div class="buttons">
+              <button id="addBannedIpsRow">추가</button>
+              <button id="saveBannedIpsBtn">저장</button>
+            </div>
+            <div id="bannedIpsList" class="list-body list-3"></div>
+          </section>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <div class="footer-title">만든 사람</div>
+        <div class="footer-row">
+          <div>마크닉: <strong>qnfaud</strong></div>
+          <div>디스코드: <strong>qnfaud</strong></div>
+        </div>
+        <div class="footer-link">Git 링크: (추가 예정)</div>
+      </footer>
+    </div>
+
+    <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
