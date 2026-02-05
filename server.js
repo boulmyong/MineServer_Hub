@@ -57,6 +57,7 @@ function loadConfig() {
 }
 
 function saveConfig(cfg) {
+  ensureDir(DATA_DIR);
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), "utf8");
 }
 
