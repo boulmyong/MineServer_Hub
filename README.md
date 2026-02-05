@@ -32,7 +32,7 @@ cd "C:\Users\user0\Desktop\개발\기타 프로그렘\minecraft-server-UI"
 npm install
 ```
 
-## 실행 (개발 모드)
+## 실행
 ```powershell
 npm run dev
 ```
