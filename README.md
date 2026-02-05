@@ -93,3 +93,4 @@ npm run dev
 
 ## 라이선스
 [MIT](https://github.com/boulmyong/MineServer_Hub?tab=MIT-1-ov-file#)
+자유롭게 사용/수정/배포 가능하지만, **저작권·라이선스 문구는 유지**해야 하고 **보증은 없습니다**.
