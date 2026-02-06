@@ -160,9 +160,43 @@
         </div>
 
         <div class="card">
+          <button class="section-toggle" id="resourcePackToggle" type="button">
+            <span>리소스팩 도우미</span>
+            <span class="caret" id="resourcePackCaret">▸</span>
+          </button>
+          <div id="resourcePackPanel" class="section-panel">
+            <div class="helper">
+              리소스팩 ZIP 파일을 업로드하면 URL/sha1을 자동으로 설정합니다.
+            </div>
+            <div class="config">
+              <div class="config-row">
+                <label>리소스팩 ZIP</label>
+                <input id="resourcePackFile" type="file" accept=".zip" />
+              </div>
+              <div class="config-row">
+                <label>안내 문구 (resource-pack-prompt)</label>
+                <input id="resourcePackPrompt" type="text" placeholder="예: 리소스팩 적용을 허용해 주세요" />
+              </div>
+              <div class="config-row">
+                <label>강제 적용</label>
+                <label class="checkbox">
+                  <input id="resourcePackRequired" type="checkbox" />
+                  require-resource-pack = true
+                </label>
+              </div>
+            </div>
+            <div class="buttons">
+              <button id="resourcePackUploadBtn">업로드 + 적용</button>
+            </div>
+            <div id="resourcePackStatus" class="helper"></div>
+          </div>
+        </div>
+
+        <div class="card">
           <div class="section-title">server.properties (전체)</div>
           <div id="props" class="props"></div>
           <div class="buttons">
+            <button id="refreshPropsBtn" class="secondary">새로고침</button>
             <button id="savePropsBtn">server.properties 저장</button>
           </div>
         </div>

@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import https from "https";
+import crypto from "crypto";
 
 const app = express();
 const PORT = 3030;
@@ -12,14 +13,16 @@ const HOST = "127.0.0.1";
 const ROOT = process.cwd();
 const DATA_DIR = path.join(ROOT, "data");
 const CONFIG_PATH = path.join(DATA_DIR, "app-config.json");
+const RESOURCEPACKS_DIR = path.join(DATA_DIR, "resourcepacks");
 const USER_AGENT = "minecraft-server-ui/0.1 (contact: local@localhost)";
 const uuidCache = new Map();
 const PLUGIN_EXT = ".jar";
 const DISABLED_EXT = ".disabled";
 const MODRINTH_BASE = "https://api.modrinth.com/v2";
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "100mb" }));
 app.use(express.static(path.join(ROOT, "public")));
+app.use("/resourcepacks", express.static(RESOURCEPACKS_DIR));
 
 let serverProc = null;
 let serverPid = null;
@@ -293,6 +296,10 @@ function pickPluginFile(files = []) {
     if (file.filename.toLowerCase().endsWith(PLUGIN_EXT)) return file;
   }
   return null;
+}
+
+function sha1Hex(buffer) {
+  return crypto.createHash("sha1").update(buffer).digest("hex");
 }
 
 function readEula(eulaPath) {
@@ -808,6 +815,50 @@ app.post("/api/modrinth/install", async (req, res) => {
   } catch {
     return res.status(500).json({ error: "Install failed" });
   }
+});
+
+app.post("/api/resourcepack/upload", async (req, res) => {
+  const { name, data } = req.body || {};
+  if (!name || typeof name !== "string") {
+    return res.status(400).json({ error: "name required" });
+  }
+  if (!data || typeof data !== "string") {
+    return res.status(400).json({ error: "data required" });
+  }
+  const safeName = sanitizeFileName(path.basename(name));
+  if (!safeName.toLowerCase().endsWith(".zip")) {
+    return res.status(400).json({ error: "Only .zip allowed" });
+  }
+
+  let buffer;
+  try {
+    buffer = Buffer.from(data, "base64");
+  } catch {
+    return res.status(400).json({ error: "Invalid base64" });
+  }
+  if (buffer.length === 0) {
+    return res.status(400).json({ error: "Empty file" });
+  }
+  if (buffer.length > 150 * 1024 * 1024) {
+    return res.status(400).json({ error: "File too large (150MB max)" });
+  }
+
+  ensureDir(RESOURCEPACKS_DIR);
+  const finalName = uniqueFileName(RESOURCEPACKS_DIR, safeName);
+  const dest = path.join(RESOURCEPACKS_DIR, finalName);
+  try {
+    fs.writeFileSync(dest, buffer);
+  } catch {
+    return res.status(500).json({ error: "Save failed" });
+  }
+
+  const sha1 = sha1Hex(buffer);
+  return res.json({
+    ok: true,
+    fileName: finalName,
+    sha1,
+    urlPath: `/resourcepacks/${encodeURIComponent(finalName)}`,
+  });
 });
 
 app.get("/api/uuid", async (req, res) => {

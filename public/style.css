@@ -335,6 +335,40 @@ button.ghost {
   color: var(--muted);
 }
 
+.section-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.section-panel {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+  transition: max-height 220ms ease, opacity 200ms ease, margin-top 200ms ease;
+}
+
+.section-panel.open {
+  max-height: 800px;
+  opacity: 1;
+  margin-top: 12px;
+}
+
+.caret {
+  font-size: 16px;
+  color: var(--muted);
+  transition: color 200ms ease;
+}
+
 .notice {
   background: var(--notice-bg);
   color: var(--notice-ink);

@@ -11,6 +11,15 @@ const stopBtn = document.getElementById("stopBtn");
 const deleteBtn = document.getElementById("deleteBtn");
 const saveAppBtn = document.getElementById("saveAppBtn");
 const savePropsBtn = document.getElementById("savePropsBtn");
+const refreshPropsBtn = document.getElementById("refreshPropsBtn");
+const resourcePackToggle = document.getElementById("resourcePackToggle");
+const resourcePackCaret = document.getElementById("resourcePackCaret");
+const resourcePackPanel = document.getElementById("resourcePackPanel");
+const resourcePackFile = document.getElementById("resourcePackFile");
+const resourcePackPrompt = document.getElementById("resourcePackPrompt");
+const resourcePackRequired = document.getElementById("resourcePackRequired");
+const resourcePackUploadBtn = document.getElementById("resourcePackUploadBtn");
+const resourcePackStatus = document.getElementById("resourcePackStatus");
 const propsEl = document.getElementById("props");
 const xmsEl = document.getElementById("xms");
 const xmxEl = document.getElementById("xmx");
@@ -248,6 +257,7 @@ async function fetchInfo() {
       localIpsEl.textContent = "";
     }
   }
+  return data;
 }
 
 const listSchemas = {
@@ -834,6 +844,12 @@ function renderProperties(values) {
     propsEl.innerHTML = "<div class=\"helper\">server.properties가 없습니다. 서버를 한 번 실행하면 생성됩니다.</div>";
     return;
   }
+  if (resourcePackPrompt && values["resource-pack-prompt"]) {
+    resourcePackPrompt.value = values["resource-pack-prompt"];
+  }
+  if (resourcePackRequired) {
+    resourcePackRequired.checked = values["require-resource-pack"] === "true";
+  }
   for (const key of keys) {
     const hint = propHints[key] || {};
     const row = document.createElement("div");
@@ -1060,6 +1076,9 @@ deleteBtn.addEventListener("click", async () => {
 
 saveAppBtn.addEventListener("click", saveAppConfig);
 savePropsBtn.addEventListener("click", saveServerProperties);
+if (refreshPropsBtn) refreshPropsBtn.addEventListener("click", fetchConfig);
+if (resourcePackToggle) resourcePackToggle.addEventListener("click", toggleResourcePackPanel);
+if (resourcePackUploadBtn) resourcePackUploadBtn.addEventListener("click", uploadResourcePack);
 addWhitelistRow.addEventListener("click", () => addEmptyRow(whitelistList, listSchemas.whitelist));
 addBannedPlayersRow.addEventListener("click", () => addEmptyRow(bannedPlayersList, listSchemas.bannedPlayers, { created: nowString(), source: "web-ui" }));
 addBannedIpsRow.addEventListener("click", () => addEmptyRow(bannedIpsList, listSchemas.bannedIps, { created: nowString(), source: "web-ui" }));
@@ -1189,6 +1208,84 @@ async function sendCommand() {
     return;
   }
   commandInput.value = "";
+}
+
+function toggleResourcePackPanel() {
+  if (!resourcePackPanel || !resourcePackCaret) return;
+  const isOpen = resourcePackPanel.classList.toggle("open");
+  resourcePackCaret.textContent = isOpen ? "▾" : "▸";
+  resourcePackCaret.classList.toggle("open", isOpen);
+}
+
+async function uploadResourcePack() {
+  if (!resourcePackFile || !resourcePackFile.files || resourcePackFile.files.length === 0) {
+    toast("리소스팩 ZIP 파일을 선택해 주세요.", "warn");
+    return;
+  }
+  const file = resourcePackFile.files[0];
+  if (!file.name.toLowerCase().endsWith(".zip")) {
+    toast("ZIP 파일만 업로드할 수 있습니다.", "warn");
+    return;
+  }
+  if (resourcePackStatus) resourcePackStatus.textContent = "업로드 중...";
+  if (resourcePackUploadBtn) resourcePackUploadBtn.disabled = true;
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+
+  const base64 = String(dataUrl).split(",")[1] || "";
+  const res = await fetch("/api/resourcepack/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: file.name, data: base64 }),
+  });
+
+  if (resourcePackUploadBtn) resourcePackUploadBtn.disabled = false;
+  if (!res.ok) {
+    const msg = await res.json();
+    if (resourcePackStatus) resourcePackStatus.textContent = msg.error || "업로드 실패";
+    toast(msg.error || "업로드 실패", "error");
+    return;
+  }
+
+  const data = await res.json();
+  const info = await fetchInfo();
+  const baseHost = info?.localIps && info.localIps.length > 0 ? info.localIps[0] : "127.0.0.1";
+  const serverPort = info?.port || 3030;
+  const url = `http://${baseHost}:${serverPort}${data.urlPath}`;
+
+  const properties = {
+    "resource-pack": url,
+    "resource-pack-sha1": data.sha1,
+  };
+  if (resourcePackPrompt && resourcePackPrompt.value.trim()) {
+    properties["resource-pack-prompt"] = resourcePackPrompt.value.trim();
+  }
+  if (resourcePackRequired) {
+    properties["require-resource-pack"] = resourcePackRequired.checked ? "true" : "false";
+  }
+
+  const saveRes = await fetch("/api/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ properties }),
+  });
+  if (!saveRes.ok) {
+    const msg = await saveRes.json();
+    if (resourcePackStatus) resourcePackStatus.textContent = msg.error || "설정 저장 실패";
+    toast(msg.error || "설정 저장 실패", "error");
+    return;
+  }
+
+  if (resourcePackStatus) {
+    resourcePackStatus.textContent = `업로드 완료: ${data.fileName}`;
+  }
+  toast("리소스팩 설정이 적용되었습니다.", "success");
+  await fetchConfig();
 }
 
 function openTab(id) {
