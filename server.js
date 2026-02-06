@@ -36,6 +36,7 @@ function defaultConfig() {
     serverType: null,
     serverVersion: null,
     serverBuild: null,
+    theme: "dark",
   };
 }
 

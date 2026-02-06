@@ -1,0 +1,13 @@
+{
+  "serverDir": "./server",
+  "jar": "server.jar",
+  "memory": {
+    "xms": "1G",
+    "xmx": "2G"
+  },
+  "nogui": true,
+  "logLines": 500,
+  "serverType": null,
+  "serverVersion": null,
+  "serverBuild": null
+}

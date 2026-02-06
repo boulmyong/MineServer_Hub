@@ -65,6 +65,7 @@ const logLinesMax = 500;
 let logLines = [];
 let autoStartAfterInstall = false;
 let serverRunning = false;
+let currentTheme = "dark";
 
 function toast(message, type = "info", ms = 2200) {
   if (!toastHost) return;
@@ -207,6 +208,10 @@ async function fetchConfig() {
   logLinesEl.value = app.logLines || 500;
 
   renderProperties(data.properties || {});
+  if (app.theme) {
+    applyTheme(app.theme);
+  }
+  return data;
 }
 
 async function fetchInfo() {
@@ -929,6 +934,7 @@ async function saveAppConfig() {
         xmx: xmxEl.value.trim(),
       },
       logLines: Number(logLinesEl.value) || 500,
+      theme: currentTheme,
     },
   };
 
@@ -945,6 +951,26 @@ async function saveAppConfig() {
   }
 
   toast("앱 설정이 저장되었습니다.");
+}
+
+function applyTheme(theme) {
+  const next = theme === "light" ? "light" : "dark";
+  currentTheme = next;
+  document.body.classList.toggle("light", next === "light");
+  if (themeToggle) themeToggle.checked = next === "dark";
+}
+
+async function saveTheme(theme) {
+  applyTheme(theme);
+  const res = await fetch("/api/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ app: { theme } }),
+  });
+  if (!res.ok) {
+    const msg = await res.json();
+    toast(msg.error || "테마 저장 실패", "error");
+  }
 }
 
 async function saveServerProperties() {
@@ -1176,14 +1202,12 @@ function openSubtab(id) {
 })();
 
 (async function init() {
-  const savedTheme = localStorage.getItem("theme") || "dark";
-  document.body.classList.toggle("light", savedTheme === "light");
-  themeToggle.checked = savedTheme === "dark";
-  themeToggle.addEventListener("change", () => {
-    const isDark = themeToggle.checked;
-    document.body.classList.toggle("light", !isDark);
-    localStorage.setItem("theme", isDark ? "dark" : "light");
-  });
+  if (themeToggle) {
+    themeToggle.addEventListener("change", () => {
+      const isDark = themeToggle.checked;
+      saveTheme(isDark ? "dark" : "light");
+    });
+  }
 
   await fetchStatus();
   await fetchLogs();
