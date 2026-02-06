@@ -193,6 +193,28 @@
         </div>
 
         <div class="card">
+          <button class="section-toggle" id="serverIconToggle" type="button">
+            <span>서버 아이콘 도우미</span>
+            <span class="caret" id="serverIconCaret">▸</span>
+          </button>
+          <div id="serverIconPanel" class="section-panel">
+            <div class="helper">
+              64x64 PNG 아이콘을 업로드하면 `server-icon.png`로 저장됩니다. 적용은 서버 재시작이 필요합니다.
+            </div>
+            <div class="config">
+              <div class="config-row">
+                <label>서버 아이콘 PNG (64x64)</label>
+                <input id="serverIconFile" type="file" accept="image/png" />
+              </div>
+            </div>
+            <div class="buttons">
+              <button id="serverIconUploadBtn">업로드</button>
+            </div>
+            <div id="serverIconStatus" class="helper"></div>
+          </div>
+        </div>
+
+        <div class="card">
           <div class="section-title">server.properties (전체)</div>
           <div id="props" class="props"></div>
           <div class="buttons">

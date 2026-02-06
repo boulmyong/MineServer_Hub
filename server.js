@@ -302,6 +302,7 @@ function sha1Hex(buffer) {
   return crypto.createHash("sha1").update(buffer).digest("hex");
 }
 
+
 function readEula(eulaPath) {
   if (!fs.existsSync(eulaPath)) return false;
   const raw = fs.readFileSync(eulaPath, "utf8");
@@ -859,6 +860,54 @@ app.post("/api/resourcepack/upload", async (req, res) => {
     sha1,
     urlPath: `/resourcepacks/${encodeURIComponent(finalName)}`,
   });
+});
+
+app.post("/api/server-icon/upload", async (req, res) => {
+  const cfg = loadConfig();
+  const { serverDir } = serverPaths(cfg);
+  const { data } = req.body || {};
+  if (!data || typeof data !== "string") {
+    return res.status(400).json({ error: "data required" });
+  }
+
+  let buffer;
+  try {
+    buffer = Buffer.from(data, "base64");
+  } catch {
+    return res.status(400).json({ error: "Invalid base64" });
+  }
+  if (buffer.length === 0) {
+    return res.status(400).json({ error: "Empty file" });
+  }
+  if (buffer.length > 2 * 1024 * 1024) {
+    return res.status(400).json({ error: "File too large (2MB max)" });
+  }
+
+  const pngSig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (!buffer.subarray(0, 8).equals(pngSig)) {
+    return res.status(400).json({ error: "Not a PNG file" });
+  }
+
+  const ihdrLength = buffer.readUInt32BE(8);
+  const ihdrType = buffer.toString("ascii", 12, 16);
+  if (ihdrType !== "IHDR" || ihdrLength < 8) {
+    return res.status(400).json({ error: "Invalid PNG header" });
+  }
+  const width = buffer.readUInt32BE(16);
+  const height = buffer.readUInt32BE(20);
+  if (width !== 64 || height !== 64) {
+    return res.status(400).json({ error: "Icon must be 64x64 PNG" });
+  }
+
+  ensureDir(serverDir);
+  const dest = path.join(serverDir, "server-icon.png");
+  try {
+    fs.writeFileSync(dest, buffer);
+  } catch {
+    return res.status(500).json({ error: "Save failed" });
+  }
+
+  return res.json({ ok: true });
 });
 
 app.get("/api/uuid", async (req, res) => {

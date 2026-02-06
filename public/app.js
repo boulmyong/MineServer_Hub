@@ -20,6 +20,12 @@ const resourcePackPrompt = document.getElementById("resourcePackPrompt");
 const resourcePackRequired = document.getElementById("resourcePackRequired");
 const resourcePackUploadBtn = document.getElementById("resourcePackUploadBtn");
 const resourcePackStatus = document.getElementById("resourcePackStatus");
+const serverIconToggle = document.getElementById("serverIconToggle");
+const serverIconCaret = document.getElementById("serverIconCaret");
+const serverIconPanel = document.getElementById("serverIconPanel");
+const serverIconFile = document.getElementById("serverIconFile");
+const serverIconUploadBtn = document.getElementById("serverIconUploadBtn");
+const serverIconStatus = document.getElementById("serverIconStatus");
 const propsEl = document.getElementById("props");
 const xmsEl = document.getElementById("xms");
 const xmxEl = document.getElementById("xmx");
@@ -71,7 +77,6 @@ const modrinthPrevBtn = document.getElementById("modrinthPrevBtn");
 const modrinthNextBtn = document.getElementById("modrinthNextBtn");
 const modrinthResults = document.getElementById("modrinthResults");
 const modrinthStatus = document.getElementById("modrinthStatus");
-
 const logLinesMax = 500;
 let logLines = [];
 let logLinesAll = [];
@@ -1079,6 +1084,8 @@ savePropsBtn.addEventListener("click", saveServerProperties);
 if (refreshPropsBtn) refreshPropsBtn.addEventListener("click", fetchConfig);
 if (resourcePackToggle) resourcePackToggle.addEventListener("click", toggleResourcePackPanel);
 if (resourcePackUploadBtn) resourcePackUploadBtn.addEventListener("click", uploadResourcePack);
+if (serverIconToggle) serverIconToggle.addEventListener("click", toggleServerIconPanel);
+if (serverIconUploadBtn) serverIconUploadBtn.addEventListener("click", uploadServerIcon);
 addWhitelistRow.addEventListener("click", () => addEmptyRow(whitelistList, listSchemas.whitelist));
 addBannedPlayersRow.addEventListener("click", () => addEmptyRow(bannedPlayersList, listSchemas.bannedPlayers, { created: nowString(), source: "web-ui" }));
 addBannedIpsRow.addEventListener("click", () => addEmptyRow(bannedIpsList, listSchemas.bannedIps, { created: nowString(), source: "web-ui" }));
@@ -1217,6 +1224,22 @@ function toggleResourcePackPanel() {
   resourcePackCaret.classList.toggle("open", isOpen);
 }
 
+function toggleServerIconPanel() {
+  if (!serverIconPanel || !serverIconCaret) return;
+  const isOpen = serverIconPanel.classList.toggle("open");
+  serverIconCaret.textContent = isOpen ? "▾" : "▸";
+  serverIconCaret.classList.toggle("open", isOpen);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadResourcePack() {
   if (!resourcePackFile || !resourcePackFile.files || resourcePackFile.files.length === 0) {
     toast("리소스팩 ZIP 파일을 선택해 주세요.", "warn");
@@ -1230,12 +1253,7 @@ async function uploadResourcePack() {
   if (resourcePackStatus) resourcePackStatus.textContent = "업로드 중...";
   if (resourcePackUploadBtn) resourcePackUploadBtn.disabled = true;
 
-  const dataUrl = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error("read failed"));
-    reader.readAsDataURL(file);
-  });
+  const dataUrl = await readFileAsDataUrl(file);
 
   const base64 = String(dataUrl).split(",")[1] || "";
   const res = await fetch("/api/resourcepack/upload", {
@@ -1286,6 +1304,43 @@ async function uploadResourcePack() {
   }
   toast("리소스팩 설정이 적용되었습니다.", "success");
   await fetchConfig();
+}
+
+async function uploadServerIcon() {
+  if (!serverIconFile || !serverIconFile.files || serverIconFile.files.length === 0) {
+    toast("서버 아이콘 PNG 파일을 선택해 주세요.", "warn");
+    return;
+  }
+  const file = serverIconFile.files[0];
+  if (file.type !== "image/png") {
+    toast("PNG 파일만 업로드할 수 있습니다.", "warn");
+    return;
+  }
+  if (serverIconStatus) serverIconStatus.textContent = "업로드 중...";
+  if (serverIconUploadBtn) serverIconUploadBtn.disabled = true;
+
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    const base64 = String(dataUrl).split(",")[1] || "";
+    const res = await fetch("/api/server-icon/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: base64 }),
+    });
+    if (serverIconUploadBtn) serverIconUploadBtn.disabled = false;
+    if (!res.ok) {
+      const msg = await res.json();
+      if (serverIconStatus) serverIconStatus.textContent = msg.error || "업로드 실패";
+      toast(msg.error || "업로드 실패", "error");
+      return;
+    }
+    if (serverIconStatus) serverIconStatus.textContent = "업로드 완료 (재시작 필요)";
+    toast("서버 아이콘이 저장되었습니다.", "success");
+  } catch {
+    if (serverIconUploadBtn) serverIconUploadBtn.disabled = false;
+    if (serverIconStatus) serverIconStatus.textContent = "업로드 실패";
+    toast("업로드 실패", "error");
+  }
 }
 
 function openTab(id) {
