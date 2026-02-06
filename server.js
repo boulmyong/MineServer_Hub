@@ -14,6 +14,9 @@ const DATA_DIR = path.join(ROOT, "data");
 const CONFIG_PATH = path.join(DATA_DIR, "app-config.json");
 const USER_AGENT = "minecraft-server-ui/0.1 (contact: local@localhost)";
 const uuidCache = new Map();
+const PLUGIN_EXT = ".jar";
+const DISABLED_EXT = ".disabled";
+const MODRINTH_BASE = "https://api.modrinth.com/v2";
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(ROOT, "public")));
@@ -67,6 +70,7 @@ function serverPaths(cfg) {
   const propsPath = path.join(serverDir, "server.properties");
   const logPath = path.join(serverDir, "logs", "latest.log");
   const eulaPath = path.join(serverDir, "eula.txt");
+  const pluginsDir = path.join(serverDir, "plugins");
   const whitelistPath = path.join(serverDir, "whitelist.json");
   const bannedPlayersPath = path.join(serverDir, "banned-players.json");
   const bannedIpsPath = path.join(serverDir, "banned-ips.json");
@@ -77,6 +81,7 @@ function serverPaths(cfg) {
     propsPath,
     logPath,
     eulaPath,
+    pluginsDir,
     whitelistPath,
     bannedPlayersPath,
     bannedIpsPath,
@@ -225,6 +230,68 @@ function writeJsonArray(filePath, value) {
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
+}
+
+function isPluginFileName(name) {
+  const lower = name.toLowerCase();
+  return lower.endsWith(PLUGIN_EXT) || lower.endsWith(`${PLUGIN_EXT}${DISABLED_EXT}`);
+}
+
+function sanitizeFileName(name) {
+  return name
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "-")
+    .replace(/\s+/g, "_")
+    .slice(0, 180);
+}
+
+function resolvePluginPath(pluginsDir, fileName) {
+  const safeName = path.basename(fileName || "");
+  if (!safeName || safeName !== fileName) return null;
+  const full = path.join(pluginsDir, safeName);
+  const resolved = path.resolve(full);
+  const base = path.resolve(pluginsDir);
+  if (!resolved.startsWith(base)) return null;
+  return full;
+}
+
+function uniqueFileName(dir, baseName) {
+  let name = baseName;
+  const ext = path.extname(baseName);
+  const stem = baseName.slice(0, baseName.length - ext.length);
+  let idx = 1;
+  while (fs.existsSync(path.join(dir, name))) {
+    name = `${stem}-${idx}${ext}`;
+    idx += 1;
+  }
+  return name;
+}
+
+function parsePluginEntry(fileName) {
+  const lower = fileName.toLowerCase();
+  let enabled = true;
+  let displayName = fileName;
+  if (lower.endsWith(`${PLUGIN_EXT}${DISABLED_EXT}`)) {
+    enabled = false;
+    displayName = fileName.slice(0, -DISABLED_EXT.length);
+  }
+  return { fileName, displayName, enabled };
+}
+
+function toInt(value, fallback) {
+  const n = Number(value);
+  if (Number.isFinite(n)) return Math.floor(n);
+  return fallback;
+}
+
+function pickPluginFile(files = []) {
+  if (!Array.isArray(files) || files.length === 0) return null;
+  const primary = files.find((f) => f?.primary);
+  const list = primary ? [primary, ...files.filter((f) => f !== primary)] : files;
+  for (const file of list) {
+    if (!file?.url || !file?.filename) continue;
+    if (file.filename.toLowerCase().endsWith(PLUGIN_EXT)) return file;
+  }
+  return null;
 }
 
 function readEula(eulaPath) {
@@ -485,6 +552,260 @@ app.post("/api/lists", (req, res) => {
     return res.json({ ok: true });
   } catch {
     return res.status(400).json({ error: "Invalid list format (must be JSON array)" });
+  }
+});
+
+app.get("/api/plugins", (req, res) => {
+  const cfg = loadConfig();
+  const { pluginsDir } = serverPaths(cfg);
+  if (!fs.existsSync(pluginsDir)) {
+    return res.json({ plugins: [], path: pluginsDir, exists: false });
+  }
+
+  const plugins = fs
+    .readdirSync(pluginsDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .filter((name) => isPluginFileName(name))
+    .map((name) => {
+      const entry = parsePluginEntry(name);
+      const stat = fs.statSync(path.join(pluginsDir, name));
+      return {
+        ...entry,
+        size: stat.size,
+        modified: stat.mtimeMs,
+      };
+    })
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+  return res.json({ plugins, path: pluginsDir, exists: true });
+});
+
+app.post("/api/plugins/disable", (req, res) => {
+  const cfg = loadConfig();
+  const { pluginsDir } = serverPaths(cfg);
+  const { fileName } = req.body || {};
+  if (!fileName || typeof fileName !== "string") {
+    return res.status(400).json({ error: "fileName required" });
+  }
+  if (!fileName.toLowerCase().endsWith(PLUGIN_EXT)) {
+    return res.status(400).json({ error: "Only .jar can be disabled" });
+  }
+  const src = resolvePluginPath(pluginsDir, fileName);
+  if (!src || !fs.existsSync(src)) {
+    return res.status(404).json({ error: "Plugin not found" });
+  }
+  const targetName = `${fileName}${DISABLED_EXT}`;
+  const dest = resolvePluginPath(pluginsDir, targetName);
+  if (!dest) return res.status(400).json({ error: "Invalid file name" });
+  if (fs.existsSync(dest)) {
+    return res.status(409).json({ error: "Disabled file already exists" });
+  }
+  fs.renameSync(src, dest);
+  return res.json({ ok: true, fileName: targetName });
+});
+
+app.post("/api/plugins/enable", (req, res) => {
+  const cfg = loadConfig();
+  const { pluginsDir } = serverPaths(cfg);
+  const { fileName } = req.body || {};
+  if (!fileName || typeof fileName !== "string") {
+    return res.status(400).json({ error: "fileName required" });
+  }
+  if (!fileName.toLowerCase().endsWith(`${PLUGIN_EXT}${DISABLED_EXT}`)) {
+    return res.status(400).json({ error: "Only .jar.disabled can be enabled" });
+  }
+  const src = resolvePluginPath(pluginsDir, fileName);
+  if (!src || !fs.existsSync(src)) {
+    return res.status(404).json({ error: "Plugin not found" });
+  }
+  const targetName = fileName.slice(0, -DISABLED_EXT.length);
+  const dest = resolvePluginPath(pluginsDir, targetName);
+  if (!dest) return res.status(400).json({ error: "Invalid file name" });
+  if (fs.existsSync(dest)) {
+    return res.status(409).json({ error: "Enabled file already exists" });
+  }
+  fs.renameSync(src, dest);
+  return res.json({ ok: true, fileName: targetName });
+});
+
+app.post("/api/plugins/delete", (req, res) => {
+  const cfg = loadConfig();
+  const { pluginsDir } = serverPaths(cfg);
+  const { fileName } = req.body || {};
+  if (!fileName || typeof fileName !== "string") {
+    return res.status(400).json({ error: "fileName required" });
+  }
+  if (!isPluginFileName(fileName)) {
+    return res.status(400).json({ error: "Invalid plugin file" });
+  }
+  const target = resolvePluginPath(pluginsDir, fileName);
+  if (!target || !fs.existsSync(target)) {
+    return res.status(404).json({ error: "Plugin not found" });
+  }
+  fs.unlinkSync(target);
+  return res.json({ ok: true });
+});
+
+app.post("/api/plugins/install/url", async (req, res) => {
+  const cfg = loadConfig();
+  const { pluginsDir } = serverPaths(cfg);
+  const { url } = req.body || {};
+  if (!url || typeof url !== "string") {
+    return res.status(400).json({ error: "url required" });
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return res.status(400).json({ error: "Invalid URL" });
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    return res.status(400).json({ error: "Only http/https allowed" });
+  }
+
+  ensureDir(pluginsDir);
+  let baseName = path.basename(parsed.pathname) || `plugin-${Date.now()}${PLUGIN_EXT}`;
+  if (!baseName.toLowerCase().endsWith(PLUGIN_EXT)) {
+    baseName = `plugin-${Date.now()}${PLUGIN_EXT}`;
+  }
+  baseName = sanitizeFileName(baseName);
+  const finalName = uniqueFileName(pluginsDir, baseName);
+  const dest = path.join(pluginsDir, finalName);
+
+  try {
+    await downloadFile(url, dest);
+    return res.json({ ok: true, fileName: finalName });
+  } catch {
+    return res.status(500).json({ error: "Download failed" });
+  }
+});
+
+app.post("/api/plugins/install/local", (req, res) => {
+  const cfg = loadConfig();
+  const { pluginsDir } = serverPaths(cfg);
+  const { path: srcPath } = req.body || {};
+  if (!srcPath || typeof srcPath !== "string") {
+    return res.status(400).json({ error: "path required" });
+  }
+  const resolved = path.isAbsolute(srcPath) ? srcPath : path.resolve(ROOT, srcPath);
+  if (!fs.existsSync(resolved)) {
+    return res.status(404).json({ error: "File not found" });
+  }
+  if (!resolved.toLowerCase().endsWith(PLUGIN_EXT)) {
+    return res.status(400).json({ error: "Only .jar files allowed" });
+  }
+
+  ensureDir(pluginsDir);
+  const baseName = sanitizeFileName(path.basename(resolved));
+  const finalName = uniqueFileName(pluginsDir, baseName);
+  const dest = path.join(pluginsDir, finalName);
+
+  try {
+    fs.copyFileSync(resolved, dest);
+    return res.json({ ok: true, fileName: finalName });
+  } catch {
+    return res.status(500).json({ error: "Copy failed" });
+  }
+});
+
+app.get("/api/modrinth/versions", async (req, res) => {
+  try {
+    const data = await fetchJson(`${MODRINTH_BASE}/tag/game_version`);
+    const list = Array.isArray(data) ? data : [];
+    const releases = list.filter((entry) => entry?.version_type === "release");
+    return res.json({ versions: releases.map((entry) => entry.version) });
+  } catch {
+    return res.status(500).json({ error: "Failed to fetch versions" });
+  }
+});
+
+app.get("/api/modrinth/search", async (req, res) => {
+  try {
+    const query = (req.query.query || "").toString();
+    const loader = (req.query.loader || "").toString().trim();
+    const version = (req.query.version || "").toString().trim();
+    const serverSide = (req.query.serverSide || "").toString().trim();
+    const index = (req.query.sort || "downloads").toString();
+    const offset = Math.max(0, toInt(req.query.offset, 0));
+    const limit = Math.min(20, Math.max(1, toInt(req.query.limit, 10)));
+
+    const facets = [];
+    if (loader) facets.push([`categories:${loader}`]);
+    if (version) facets.push([`versions:${version}`]);
+    if (serverSide) facets.push([`server_side:${serverSide}`]);
+
+    const params = new URLSearchParams();
+    if (query) params.set("query", query);
+    params.set("index", index);
+    params.set("offset", String(offset));
+    params.set("limit", String(limit));
+    if (facets.length > 0) params.set("facets", JSON.stringify(facets));
+
+    const url = `${MODRINTH_BASE}/search?${params.toString()}`;
+    const data = await fetchJson(url);
+    const hits = Array.isArray(data?.hits) ? data.hits : [];
+    return res.json({
+      total: data?.total_hits || 0,
+      offset: data?.offset || offset,
+      limit: data?.limit || limit,
+      hits: hits.map((hit) => ({
+        project_id: hit.project_id,
+        slug: hit.slug,
+        title: hit.title,
+        description: hit.description,
+        downloads: hit.downloads,
+        icon_url: hit.icon_url,
+        categories: hit.categories || [],
+        server_side: hit.server_side,
+        client_side: hit.client_side,
+        date_modified: hit.date_modified,
+      })),
+    });
+  } catch {
+    return res.status(500).json({ error: "Failed to search Modrinth" });
+  }
+});
+
+app.post("/api/modrinth/install", async (req, res) => {
+  const cfg = loadConfig();
+  const { pluginsDir } = serverPaths(cfg);
+  const { projectId, loader, version } = req.body || {};
+  if (!projectId || typeof projectId !== "string") {
+    return res.status(400).json({ error: "projectId required" });
+  }
+
+  const params = new URLSearchParams();
+  if (loader) params.set("loaders", JSON.stringify([loader]));
+  if (version) params.set("game_versions", JSON.stringify([version]));
+  params.set("limit", "20");
+
+  try {
+    const url = `${MODRINTH_BASE}/project/${encodeURIComponent(projectId)}/version?${params.toString()}`;
+    const versions = await fetchJson(url);
+    if (!Array.isArray(versions) || versions.length === 0) {
+      return res.status(404).json({ error: "No compatible versions found" });
+    }
+
+    const selected = versions[0];
+    const file = pickPluginFile(selected?.files || []);
+    if (!file) {
+      return res.status(404).json({ error: "No downloadable jar found" });
+    }
+
+    ensureDir(pluginsDir);
+    const baseName = sanitizeFileName(file.filename);
+    const finalName = uniqueFileName(pluginsDir, baseName);
+    const dest = path.join(pluginsDir, finalName);
+
+    await downloadFile(file.url, dest);
+    return res.json({
+      ok: true,
+      fileName: finalName,
+      versionName: selected?.name || selected?.version_number || null,
+    });
+  } catch {
+    return res.status(500).json({ error: "Install failed" });
   }
 });
 

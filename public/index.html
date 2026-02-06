@@ -14,6 +14,8 @@
           <button class="tab active" data-tab="tab-control" role="tab" aria-selected="true">대시보드</button>
           <button class="tab" data-tab="tab-settings" role="tab" aria-selected="false">설정</button>
           <button class="tab" data-tab="tab-lists" role="tab" aria-selected="false">목록 관리</button>
+          <button class="tab" data-tab="tab-plugins" role="tab" aria-selected="false">플러그인</button>
+          <button class="tab" data-tab="tab-plugin-search" role="tab" aria-selected="false">플러그인 찾기</button>
         </nav>
         <div class="theme-toggle">
           <span>다크 모드</span>
@@ -206,6 +208,84 @@
             </div>
             <div id="bannedIpsList" class="list-body list-3"></div>
           </section>
+        </div>
+      </section>
+
+      <section id="tab-plugins" class="tab-panel" role="tabpanel">
+        <div class="grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="section-title">플러그인 목록</div>
+                <div class="helper">
+                  `./server/plugins` 폴더의 jar 파일을 관리합니다. 적용은 서버 재시작이 필요할 수 있습니다.
+                </div>
+              </div>
+              <div class="card-actions">
+                <div class="plugin-install-inline">
+                  <input id="pluginUrlInput" type="text" placeholder="플러그인 URL (jar)" />
+                  <button id="pluginUrlBtn">URL 설치</button>
+                </div>
+                <button id="refreshPluginsBtn" class="secondary">새로고침</button>
+              </div>
+            </div>
+            <div id="pluginsList" class="plugin-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-plugin-search" class="tab-panel" role="tabpanel">
+        <div class="card">
+          <div class="section-title">Modrinth 플러그인 찾기</div>
+          <div class="helper">
+            Modrinth API로 플러그인을 검색합니다. 다운로드는 외부 네트워크를 사용합니다.
+          </div>
+          <div class="config">
+            <div class="config-row">
+              <label>검색어</label>
+              <input id="modrinthQuery" type="text" placeholder="예: worldedit, essentials" />
+            </div>
+            <div class="config-row">
+              <label>플랫폼</label>
+              <select id="modrinthLoader"></select>
+            </div>
+            <div class="config-row">
+              <label>게임 버전</label>
+              <select id="modrinthVersion"></select>
+            </div>
+            <div class="config-row">
+              <label>서버 지원</label>
+              <select id="modrinthServerSide">
+                <option value="">전체</option>
+                <option value="required" selected>필수</option>
+                <option value="optional">선택</option>
+                <option value="unsupported">미지원</option>
+                <option value="unknown">알 수 없음</option>
+              </select>
+            </div>
+            <div class="config-row">
+              <label>정렬</label>
+              <select id="modrinthSort">
+                <option value="downloads" selected>다운로드</option>
+                <option value="relevance">관련도</option>
+                <option value="updated">최근 업데이트</option>
+                <option value="newest">최신 등록</option>
+                <option value="follows">팔로우</option>
+              </select>
+            </div>
+          </div>
+          <div class="buttons">
+            <button id="modrinthSearchBtn">검색</button>
+            <button id="modrinthResetBtn" class="secondary">초기화</button>
+          </div>
+          <div class="search-meta">
+            <div id="modrinthStatus" class="helper"></div>
+            <div class="pager">
+              <button id="modrinthPrevBtn" class="secondary">이전</button>
+              <button id="modrinthNextBtn" class="secondary">다음</button>
+            </div>
+          </div>
+          <div id="modrinthResults" class="result-list"></div>
         </div>
       </section>
 

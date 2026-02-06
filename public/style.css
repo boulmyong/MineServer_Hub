@@ -208,6 +208,31 @@ body.light .topbar {
   transition: background 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
 }
 
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.plugin-install-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plugin-install-inline input {
+  min-width: 220px;
+}
+
 .hidden {
   display: none;
 }
@@ -469,6 +494,179 @@ select {
   font-size: 12px;
 }
 
+.plugin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.plugin-row {
+  display: grid;
+  grid-template-columns: 1.6fr 0.5fr 0.6fr 0.9fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+}
+
+.plugin-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.plugin-sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.plugin-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.plugin-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.plugin-install {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.plugin-install input {
+  flex: 1;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.badge.ok {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.badge.warn {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+button.secondary {
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.search-meta {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pager {
+  display: flex;
+  gap: 8px;
+}
+
+.result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.result-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.result-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  background: #111827;
+}
+
+.result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.result-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.result-desc {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.result-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.result-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.result-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 12px;
+}
+
 .kv {
   display: flex;
   align-items: center;
@@ -663,6 +861,48 @@ select {
   .topbar-inner {
     grid-template-columns: 1fr;
     justify-items: start;
+  }
+
+  .plugin-row {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .plugin-actions {
+    justify-content: flex-start;
+  }
+
+  .plugin-install {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .card-actions {
+    width: 100%;
+  }
+
+  .plugin-install-inline {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .result-row {
+    grid-template-columns: 1fr;
+  }
+
+  .result-actions {
+    justify-content: flex-start;
   }
 }
 

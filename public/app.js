@@ -45,6 +45,21 @@ const installBtn = document.getElementById("installBtn");
 const installStatus = document.getElementById("installStatus");
 const eulaCheck = document.getElementById("eulaCheck");
 const themeToggle = document.getElementById("themeToggle");
+const pluginsList = document.getElementById("pluginsList");
+const refreshPluginsBtn = document.getElementById("refreshPluginsBtn");
+const pluginUrlInput = document.getElementById("pluginUrlInput");
+const pluginUrlBtn = document.getElementById("pluginUrlBtn");
+const modrinthQuery = document.getElementById("modrinthQuery");
+const modrinthLoader = document.getElementById("modrinthLoader");
+const modrinthVersion = document.getElementById("modrinthVersion");
+const modrinthServerSide = document.getElementById("modrinthServerSide");
+const modrinthSort = document.getElementById("modrinthSort");
+const modrinthSearchBtn = document.getElementById("modrinthSearchBtn");
+const modrinthResetBtn = document.getElementById("modrinthResetBtn");
+const modrinthPrevBtn = document.getElementById("modrinthPrevBtn");
+const modrinthNextBtn = document.getElementById("modrinthNextBtn");
+const modrinthResults = document.getElementById("modrinthResults");
+const modrinthStatus = document.getElementById("modrinthStatus");
 
 const logLinesMax = 500;
 let logLines = [];
@@ -461,6 +476,337 @@ async function saveList(kind) {
   toast("저장되었습니다.");
 }
 
+function formatBytes(bytes = 0) {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1)} MB`;
+  const gb = mb / 1024;
+  return `${gb.toFixed(2)} GB`;
+}
+
+function formatNumber(value = 0) {
+  return Number(value || 0).toLocaleString("ko-KR");
+}
+
+function formatDate(ms) {
+  if (!ms) return "-";
+  const d = new Date(ms);
+  return d.toLocaleString("ko-KR");
+}
+
+function renderPlugins(plugins = []) {
+  if (!pluginsList) return;
+  pluginsList.innerHTML = "";
+  if (!plugins.length) {
+    const empty = document.createElement("div");
+    empty.className = "helper";
+    empty.textContent = "플러그인이 없습니다.";
+    pluginsList.appendChild(empty);
+    return;
+  }
+
+  plugins.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "plugin-row";
+
+    const nameCol = document.createElement("div");
+    nameCol.className = "plugin-name";
+    const title = document.createElement("div");
+    title.textContent = item.displayName || item.fileName;
+    const sub = document.createElement("div");
+    sub.className = "plugin-sub";
+    sub.textContent = item.fileName;
+    nameCol.appendChild(title);
+    nameCol.appendChild(sub);
+
+    const status = document.createElement("span");
+    status.className = `badge ${item.enabled ? "ok" : "warn"}`;
+    status.textContent = item.enabled ? "사용중" : "비활성";
+
+    const size = document.createElement("div");
+    size.className = "plugin-meta";
+    size.textContent = formatBytes(item.size || 0);
+
+    const modified = document.createElement("div");
+    modified.className = "plugin-meta";
+    modified.textContent = formatDate(item.modified);
+
+    const actions = document.createElement("div");
+    actions.className = "plugin-actions";
+
+    const toggle = document.createElement("button");
+    toggle.className = "secondary";
+    toggle.textContent = item.enabled ? "비활성화" : "활성화";
+    toggle.addEventListener("click", async () => {
+      const endpoint = item.enabled ? "/api/plugins/disable" : "/api/plugins/enable";
+      const ok = await pluginAction(endpoint, { fileName: item.fileName });
+      if (ok) await fetchPlugins();
+    });
+
+    const del = document.createElement("button");
+    del.className = "danger";
+    del.textContent = "삭제";
+    del.addEventListener("click", async () => {
+      const ok = confirm(`${item.fileName} 플러그인을 삭제할까요?`);
+      if (!ok) return;
+      const done = await pluginAction("/api/plugins/delete", { fileName: item.fileName });
+      if (done) await fetchPlugins();
+    });
+
+    actions.appendChild(toggle);
+    actions.appendChild(del);
+
+    row.appendChild(nameCol);
+    row.appendChild(status);
+    row.appendChild(size);
+    row.appendChild(modified);
+    row.appendChild(actions);
+    pluginsList.appendChild(row);
+  });
+}
+
+async function fetchPlugins() {
+  if (!pluginsList) return;
+  const res = await fetch("/api/plugins");
+  if (!res.ok) {
+    toast("플러그인 목록을 불러오지 못했습니다.", "error");
+    return;
+  }
+  const data = await res.json();
+  renderPlugins(data.plugins || []);
+}
+
+async function pluginAction(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  if (!res.ok) {
+    const msg = await res.json();
+    toast(msg.error || "요청 실패", "error");
+    return false;
+  }
+  return true;
+}
+
+async function installPluginFromUrl() {
+  if (!pluginUrlInput) return;
+  const url = pluginUrlInput.value.trim();
+  if (!url) {
+    toast("플러그인 URL을 입력해 주세요.", "warn");
+    return;
+  }
+  toast("다운로드 중...", "info", 1600);
+  if (pluginUrlBtn) pluginUrlBtn.disabled = true;
+  const res = await fetch("/api/plugins/install/url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  if (pluginUrlBtn) pluginUrlBtn.disabled = false;
+  if (!res.ok) {
+    const msg = await res.json();
+    toast(msg.error || "다운로드 실패", "error");
+    return;
+  }
+  const data = await res.json();
+  toast(`설치 완료: ${data.fileName}`, "success");
+  pluginUrlInput.value = "";
+  await fetchPlugins();
+}
+
+const modrinthState = {
+  offset: 0,
+  limit: 10,
+  total: 0,
+};
+
+function setModrinthStatus(text) {
+  if (modrinthStatus) modrinthStatus.textContent = text || "";
+}
+
+function setLoaderOptions() {
+  if (!modrinthLoader) return;
+  const options = [
+    { value: "", label: "전체" },
+    { value: "paper", label: "Paper" },
+    { value: "spigot", label: "Spigot" },
+    { value: "bukkit", label: "Bukkit" },
+    { value: "purpur", label: "Purpur" },
+    { value: "sponge", label: "Sponge" },
+    { value: "bungeecord", label: "BungeeCord" },
+    { value: "waterfall", label: "Waterfall" },
+    { value: "velocity", label: "Velocity" },
+  ];
+  setOptions(modrinthLoader, options, "paper");
+}
+
+async function loadModrinthVersions() {
+  if (!modrinthVersion) return;
+  try {
+    const res = await fetch("/api/modrinth/versions");
+    if (!res.ok) throw new Error("fetch failed");
+    const data = await res.json();
+    const versions = [{ value: "", label: "전체" }].concat(
+      (data.versions || []).map((v) => ({ value: v, label: v }))
+    );
+    setOptions(modrinthVersion, versions, "");
+  } catch {
+    setOptions(modrinthVersion, [{ value: "", label: "버전 로드 실패" }], "");
+  }
+}
+
+function buildModrinthQuery() {
+  return {
+    query: modrinthQuery ? modrinthQuery.value.trim() : "",
+    loader: modrinthLoader ? modrinthLoader.value : "",
+    version: modrinthVersion ? modrinthVersion.value : "",
+    serverSide: modrinthServerSide ? modrinthServerSide.value : "",
+    sort: modrinthSort ? modrinthSort.value : "downloads",
+  };
+}
+
+function renderModrinthResults(items = []) {
+  if (!modrinthResults) return;
+  modrinthResults.innerHTML = "";
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "helper";
+    empty.textContent = "검색 결과가 없습니다.";
+    modrinthResults.appendChild(empty);
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "result-row";
+
+    const icon = document.createElement("img");
+    icon.className = "result-icon";
+    icon.alt = item.title || "plugin";
+    icon.src = item.icon_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='100%' height='100%' fill='%231e293b'/></svg>";
+
+    const info = document.createElement("div");
+    info.className = "result-info";
+
+    const title = document.createElement("div");
+    title.className = "result-title";
+    title.textContent = item.title || item.slug;
+
+    const desc = document.createElement("div");
+    desc.className = "result-desc";
+    desc.textContent = item.description || "";
+
+    const meta = document.createElement("div");
+    meta.className = "result-meta";
+    const downloads = document.createElement("span");
+    downloads.textContent = `다운로드 ${formatNumber(item.downloads)}`;
+    const serverSide = document.createElement("span");
+    serverSide.textContent = `서버: ${item.server_side || "unknown"}`;
+    const updated = document.createElement("span");
+    updated.textContent = item.date_modified ? `업데이트 ${new Date(item.date_modified).toLocaleDateString("ko-KR")}` : "업데이트 정보 없음";
+    meta.appendChild(downloads);
+    meta.appendChild(serverSide);
+    meta.appendChild(updated);
+
+    const tags = document.createElement("div");
+    tags.className = "result-tags";
+    (item.categories || []).slice(0, 6).forEach((tag) => {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = tag;
+      tags.appendChild(chip);
+    });
+
+    info.appendChild(title);
+    info.appendChild(desc);
+    info.appendChild(meta);
+    info.appendChild(tags);
+
+    const actions = document.createElement("div");
+    actions.className = "result-actions";
+    const install = document.createElement("button");
+    install.className = "secondary";
+    install.textContent = "설치";
+    install.addEventListener("click", async () => {
+      const ok = await installFromModrinth(item.project_id, item.title || item.slug);
+      if (ok) {
+        await fetchPlugins();
+      }
+    });
+    const link = document.createElement("a");
+    link.className = "button-link";
+    link.href = `https://modrinth.com/project/${item.slug}`;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = "Modrinth 열기";
+    actions.appendChild(install);
+    actions.appendChild(link);
+
+    row.appendChild(icon);
+    row.appendChild(info);
+    row.appendChild(actions);
+    modrinthResults.appendChild(row);
+  });
+}
+
+async function fetchModrinthResults(reset = false) {
+  if (!modrinthResults) return;
+  if (reset) modrinthState.offset = 0;
+  const { query, loader, version, serverSide, sort } = buildModrinthQuery();
+  const params = new URLSearchParams();
+  if (query) params.set("query", query);
+  if (loader) params.set("loader", loader);
+  if (version) params.set("version", version);
+  if (serverSide) params.set("serverSide", serverSide);
+  if (sort) params.set("sort", sort);
+  params.set("offset", String(modrinthState.offset));
+  params.set("limit", String(modrinthState.limit));
+
+  setModrinthStatus("검색 중...");
+  const res = await fetch(`/api/modrinth/search?${params.toString()}`);
+  if (!res.ok) {
+    setModrinthStatus("검색 실패");
+    renderModrinthResults([]);
+    return;
+  }
+  const data = await res.json();
+  modrinthState.total = data.total || 0;
+  modrinthState.offset = data.offset || 0;
+  const start = modrinthState.offset + 1;
+  const end = Math.min(modrinthState.offset + (data.limit || modrinthState.limit), modrinthState.total);
+  setModrinthStatus(`총 ${formatNumber(modrinthState.total)}개 · ${start}~${end} 표시`);
+  renderModrinthResults(data.hits || []);
+  if (modrinthPrevBtn) modrinthPrevBtn.disabled = modrinthState.offset <= 0;
+  if (modrinthNextBtn) modrinthNextBtn.disabled = modrinthState.offset + (data.limit || modrinthState.limit) >= modrinthState.total;
+}
+
+async function installFromModrinth(projectId, name) {
+  if (!projectId) return false;
+  const { loader, version } = buildModrinthQuery();
+  const label = name ? `${name}` : "플러그인";
+  setModrinthStatus(`${label} 설치 중...`);
+  const res = await fetch("/api/modrinth/install", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ projectId, loader, version }),
+  });
+  if (!res.ok) {
+    const msg = await res.json();
+    setModrinthStatus(msg.error || "설치 실패");
+    toast(msg.error || "설치 실패", "error");
+    return false;
+  }
+  const data = await res.json();
+  const versionName = data.versionName ? ` (${data.versionName})` : "";
+  setModrinthStatus(`설치 완료: ${data.fileName}${versionName}`);
+  toast("플러그인이 설치되었습니다.");
+  return true;
+}
+
 function renderProperties(values) {
   propsEl.innerHTML = "";
   const keys = Object.keys(values).sort();
@@ -683,6 +1029,27 @@ saveBannedPlayersBtn.addEventListener("click", () => saveList("bannedPlayers"));
 saveBannedIpsBtn.addEventListener("click", () => saveList("bannedIps"));
 saveOpsBtn.addEventListener("click", () => saveList("ops"));
 
+if (refreshPluginsBtn) refreshPluginsBtn.addEventListener("click", fetchPlugins);
+if (pluginUrlBtn) pluginUrlBtn.addEventListener("click", installPluginFromUrl);
+
+if (modrinthSearchBtn) modrinthSearchBtn.addEventListener("click", () => fetchModrinthResults(true));
+if (modrinthResetBtn) modrinthResetBtn.addEventListener("click", () => {
+  if (modrinthQuery) modrinthQuery.value = "";
+  if (modrinthServerSide) modrinthServerSide.value = "required";
+  if (modrinthSort) modrinthSort.value = "downloads";
+  if (modrinthLoader) modrinthLoader.value = "paper";
+  if (modrinthVersion) modrinthVersion.value = "";
+  fetchModrinthResults(true);
+});
+if (modrinthPrevBtn) modrinthPrevBtn.addEventListener("click", () => {
+  modrinthState.offset = Math.max(0, modrinthState.offset - modrinthState.limit);
+  fetchModrinthResults(false);
+});
+if (modrinthNextBtn) modrinthNextBtn.addEventListener("click", () => {
+  modrinthState.offset = modrinthState.offset + modrinthState.limit;
+  fetchModrinthResults(false);
+});
+
 whitelistList.addEventListener("focusout", handleUuidLookup);
 bannedPlayersList.addEventListener("focusout", handleUuidLookup);
 opsList.addEventListener("focusout", handleUuidLookup);
@@ -823,6 +1190,10 @@ function openSubtab(id) {
   await fetchConfig();
   await fetchInfo();
   await fetchLists();
+  await fetchPlugins();
+  setLoaderOptions();
+  await loadModrinthVersions();
+  if (modrinthResults) await fetchModrinthResults(true);
   await setupUI();
   startStream();
   setInterval(fetchStatus, 3000);
