@@ -923,6 +923,8 @@ app.post("/api/start", (req, res) => {
 
   const mem = cfg.memory || { xms: "1G", xmx: "2G" };
   const args = [];
+  args.push("-Dfile.encoding=UTF-8");
+  args.push("-Dsun.jnu.encoding=UTF-8");
   if (mem.xms) args.push(`-Xms${mem.xms}`);
   if (mem.xmx) args.push(`-Xmx${mem.xmx}`);
   args.push("-jar", jarPath);

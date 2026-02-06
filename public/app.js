@@ -4,6 +4,8 @@ const statusLargeEl = document.getElementById("statusLarge");
 const pidLargeEl = document.getElementById("pidLarge");
 const statusDot = document.getElementById("statusDot");
 const logEl = document.getElementById("log");
+const logFilterInput = document.getElementById("logFilterInput");
+const clearLogFilterBtn = document.getElementById("clearLogFilterBtn");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const deleteBtn = document.getElementById("deleteBtn");
@@ -63,6 +65,9 @@ const modrinthStatus = document.getElementById("modrinthStatus");
 
 const logLinesMax = 500;
 let logLines = [];
+let logLinesAll = [];
+let logFilter = "";
+let isComposing = false;
 let autoStartAfterInstall = false;
 let serverRunning = false;
 let currentTheme = "dark";
@@ -175,9 +180,20 @@ function setStatus(running, pid) {
 
 function appendLog(line) {
   if (!line) return;
-  logLines.push(line);
-  if (logLines.length > logLinesMax) {
-    logLines = logLines.slice(logLines.length - logLinesMax);
+  logLinesAll.push(line);
+  if (logLinesAll.length > logLinesMax) {
+    logLinesAll = logLinesAll.slice(logLinesAll.length - logLinesMax);
+  }
+  renderLog();
+}
+
+function renderLog() {
+  if (!logEl) return;
+  if (!logFilter) {
+    logLines = logLinesAll.slice();
+  } else {
+    const needle = logFilter.toLowerCase();
+    logLines = logLinesAll.filter((line) => line.toLowerCase().includes(needle));
   }
   logEl.textContent = logLines.join("\n");
   logEl.scrollTop = logEl.scrollHeight;
@@ -192,9 +208,8 @@ async function fetchStatus() {
 async function fetchLogs() {
   const res = await fetch("/api/logs");
   const data = await res.json();
-  logLines = data.lines || [];
-  logEl.textContent = logLines.join("\n");
-  logEl.scrollTop = logEl.scrollHeight;
+  logLinesAll = data.lines || [];
+  renderLog();
 }
 
 async function fetchConfig() {
@@ -1081,8 +1096,28 @@ bannedPlayersList.addEventListener("focusout", handleUuidLookup);
 opsList.addEventListener("focusout", handleUuidLookup);
 sendCommandBtn.addEventListener("click", sendCommand);
 commandInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendCommand();
+  if (e.key === "Enter" && !isComposing) sendCommand();
 });
+commandInput.addEventListener("compositionstart", () => {
+  isComposing = true;
+});
+commandInput.addEventListener("compositionend", () => {
+  isComposing = false;
+});
+
+if (logFilterInput) {
+  logFilterInput.addEventListener("input", () => {
+    logFilter = logFilterInput.value.trim();
+    renderLog();
+  });
+}
+if (clearLogFilterBtn) {
+  clearLogFilterBtn.addEventListener("click", () => {
+    logFilter = "";
+    if (logFilterInput) logFilterInput.value = "";
+    renderLog();
+  });
+}
 
 serverTypeSelect.addEventListener("change", loadVersions);
 serverVersionSelect.addEventListener("change", loadBuilds);

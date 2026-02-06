@@ -125,6 +125,10 @@
         </div>
         <div class="card">
           <div class="section-title">서버 로그</div>
+          <div class="log-filter">
+            <input id="logFilterInput" type="text" placeholder="로그 필터 (예: joined, ERROR)" />
+            <button id="clearLogFilterBtn" class="secondary">필터 해제</button>
+          </div>
           <div id="log" class="log"></div>
           <div class="console">
             <input id="commandInput" type="text" placeholder="예: say 안녕하세요" />
